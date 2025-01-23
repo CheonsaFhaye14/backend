@@ -17,58 +17,61 @@ const sequelize = new Sequelize(process.env.DB_URL, {
     }
 });
 
-sequelize.sync().then(() => {
-    console.log("Database connected");
-}).catch((err) => {
-    console.log(err);
-});
-
-// Sequelize model definition
-const Post = sequelize.define("post", {
-    title: {
+// Sequelize model definition for "users"
+const User = sequelize.define("users", {
+    username: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    content: {
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true, // Ensures no duplicate emails
+    },
+    password: {
         type: DataTypes.STRING,
         allowNull: false,
     },
-});
-
-// Fetch posts from the database
-app.get("/api/posts", async (req, res) => {
-    try {
-        const posts = await Post.findAll(); // Corrected model name
-        res.json(posts);
-    } catch (err) {
-        res.status(500).send("Error fetching posts: " + err.message);
-    }
-});
-
-app.get("/", (req, res) => {
-    res.send("Hello World");
+    usertype: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
 });
 
 // Register route to handle user registration
 app.post("/api/app/register", async (req, res) => {
     const { username, email, password, usertype } = req.body;
 
-    // Validate inputs (you can use validation libraries like express-validator)
+    // Validate inputs
     if (!username || !email || !password || !usertype) {
         return res.status(400).json({ message: "All fields are required" });
     }
 
     try {
-        // Create new post in the database (repurposing for registration info)
-        const newPost = await Post.create({
-            title: username, // Use the username for the title
-            content: `User email: ${email}, User type: ${usertype}`, // Content contains basic information
+        // Check if the email already exists in the database
+        const existingUser = await User.findOne({
+            where: { email: email },
         });
 
-        // Respond with the new post details
-        res.status(201).json({ message: "User registered successfully", post: newPost });
+        if (existingUser) {
+            return res.status(400).json({ message: "Email already registered" });
+        }
+
+        // Create a new user in the database
+        const newUser = await User.create({
+            username: username,
+            email: email,
+            password: password, // Remember to hash passwords before saving them in production
+            usertype: usertype,
+        });
+
+        // Respond with the new user details
+        res.status(201).json({
+            message: "User registered successfully",
+            user: newUser,
+        });
     } catch (error) {
-        console.error(error);
+        console.error("Error registering user:", error);
         res.status(500).json({ message: "Error registering user" });
     }
 });
